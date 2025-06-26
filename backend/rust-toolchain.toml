@@ -1,0 +1,6 @@
+[toolchain]
+channel = "nightly-2025-04-30"
+components = [ "rustfmt", "rustc-dev" ]
+targets = [ "x86_64-unknown-linux-gnu", "thumbv2-none-eabi" ]
+profile = "minimal"
+edition = "2021"
