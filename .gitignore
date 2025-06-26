@@ -1,3 +1,6 @@
 /target
 *_image.txt
 *_laser.txt
+.env
+.vscode
+Cargo.lock

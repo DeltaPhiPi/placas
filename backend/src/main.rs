@@ -1,4 +1,5 @@
 use std::{collections::HashMap, fs, sync::{Arc, LazyLock}};
+use chrono::Timelike;
 use reqwest::Url;
 use tokio::task;
 use tokio::time::Duration;
@@ -59,17 +60,17 @@ fn api_param() -> (String, String) {
 
 
 async fn oled() -> impl IntoResponse {
-	println!("oled");
-	(StatusCode::OK, Body::new(OLED.lock().await.clone()))
-	//(StatusCode::OK, "plus".to_owned());
+    println!("oled");
+    (StatusCode::OK, Body::new(OLED.lock().await.clone()))
+    //(StatusCode::OK, "plus".to_owned());
 }
 
 async fn post_log(req: String) -> impl IntoResponse {
-	println!("#########");
-	println!("Received string\n---------");
-	println!("{}", req);
-	println!("#########");
-	return StatusCode::OK;	
+    println!("#########");
+    println!("Received string\n---------");
+    println!("{}", req);
+    println!("#########");
+    return StatusCode::OK;	
 }
 #[tokio::main]
 async fn main() {
@@ -78,19 +79,18 @@ async fn main() {
         .layer(CorsLayer::very_permissive())
         .route("/img", post(set_image))
         .route("/img", get(get_image))
-	.route("/log", post(post_log))
-	.route("/oled", get(oled))
+        .route("/log", post(post_log))
+        .route("/oled", get(oled))
         .route("/img_data", get(get_image_data))
         .route("/img_debug_data", get(get_image_debug_data))
         .route("/laser", post(laser))
         .route_service("/", ServeFile::new("./index.html"))
         .route_service("/ota.json", ServeFile::new("./ota.json"))
-	.layer(CorsLayer::very_permissive())
-	.route_service("/index.html", ServeFile::new("./index.html"))
+        .layer(CorsLayer::very_permissive())
+        .route_service("/index.html", ServeFile::new("./index.html"))
         .route_service("/index.css", ServeFile::new("./index.css"))
         .route_service("/index.js", ServeFile::new("./index.js"))
-	.nest_service("/ota", ServeDir::new("/home/gamma/images/ota"))
-        //.route("/wstest", get(handler))
+        .nest_service("/ota", ServeDir::new("/home/gamma/images/ota"))
         .route("/aircon", put(put_aircon))
         .route("/aircon", get(get_aircon))
         .route("/weather", put(set_weather))
@@ -98,21 +98,21 @@ async fn main() {
     ;
     let listener = tokio::net::TcpListener::bind("0.0.0.0:5000").await.unwrap();
     let forever = task::spawn(async {
-	println!("Foreverrrrr");
+    println!("Foreverrrrr");
         let mut interval = time::interval(Duration::from_millis(30000));
         loop {
             interval.tick().await;
-	    let mut lock = THING.lock().await;
+        let mut lock = THING.lock().await;
         let url = Url::parse_with_params(URL, {let mut p = lock.to_url_params(); p.push(api_param()); p}).unwrap();
         let resp = reqwest::get(url).await.unwrap().text().await.unwrap();
-	    println!("Sent fields {:?}, got {:?}", lock, resp);
+        println!("Sent fields {:?}, got {:?}", lock, resp);
             lock.tof_count = None;
         }
     });
     let _ = tokio::join!(
-	    axum::serve(listener, app),
+        axum::serve(listener, app),
     forever
-	    
+        
     );
 
 
@@ -230,7 +230,28 @@ async fn put_aircon(data: Json<ACUpdate>) -> impl IntoResponse {
 }
 
 async fn get_aircon() -> impl IntoResponse {
-    (StatusCode::OK, Body::from(serde_json::to_string(&STATE.lock().await.acdata).unwrap()))
+    let mut acstate = STATE.lock().await.acdata;
+    // let ts = THING.lock().await;
+    // if ts.weather.map(|w| w.temperature < 15.0).unwrap_or_default() && ts.ir_estimation.unwrap_or_default() > 4.0 {
+    //     acstate = ACData {
+    //         mode: ACMode::Heat,
+    //         temperature: 21,
+    //         power: true,
+    //         force_update: true,
+    //         ..Default::default()
+    //     }
+    // }
+    let datetime = chrono::Utc::now();
+    let time = datetime.time();
+    let (h,m) = (time.hour(), time.minute());
+    if h == 3 && m == 0 {
+        acstate = ACData {
+            power: false,
+            force_update: true,
+            ..Default::default()        
+        }
+    }
+    (StatusCode::OK, Body::from(serde_json::to_string(&acstate).unwrap()))
 }
 
 
